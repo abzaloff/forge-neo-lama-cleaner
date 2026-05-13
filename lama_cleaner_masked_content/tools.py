@@ -3,7 +3,6 @@ import cv2, random, os
 from PIL import Image, ImageChops
 from modules import shared, errors, masking
 from modules.modelloader import load_file_from_url
-from modules.processing import apply_overlay
 
 
 WEIGHTS_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'weights')
@@ -22,11 +21,14 @@ def uncrop(image: Image.Image, origImage: Image.Image, origMask: Image.Image, pa
     crop_region = masking.get_crop_region(origMask, padding)
     crop_region = masking.expand_crop_region(crop_region, 1, 1, origMask.width, origMask.height)
     x1, y1, x2, y2 = crop_region
-    paste_to = (x1, y1, x2-x1, y2-y1)
-    image_masked = Image.new('RGBa', (origImage.width, origImage.height))
-    image_masked.paste(origImage.convert("RGBA").convert("RGBa"), mask=ImageChops.invert(origMask))
-    overlay_image = image_masked.convert('RGBA')
-    return apply_overlay(image.convert("RGB"), paste_to, overlay_image)[0].convert("RGBA")
+    patch_size = (x2 - x1, y2 - y1)
+    patch = image.convert("RGBA")
+    if patch.size != patch_size:
+        patch = patch.resize(patch_size)
+    mask = origMask.crop(crop_region).resize(patch_size).convert("L")
+    result = origImage.convert("RGBA")
+    result.paste(patch, (x1, y1), mask)
+    return result
 
 
 
@@ -96,7 +98,12 @@ def ensureAllModelsDownloaded():
     urls = ['https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt',
             'https://github.com/Sanster/models/releases/download/add_mat/Places_512_FullData_G.pth']
     for url in urls:
-        if os.path.exists(os.path.join(WEIGHTS_PATH, url.split('/')[-1])):
+        filename = url.split('/')[-1]
+        target_path = os.path.join(WEIGHTS_PATH, filename)
+        corrupted_path = f"{target_path}.corrupted"
+        if not os.path.exists(target_path) and os.path.exists(corrupted_path):
+            os.replace(corrupted_path, target_path)
+        if os.path.exists(target_path):
             continue
         load_file_from_url(url=url, model_dir=WEIGHTS_PATH)
 

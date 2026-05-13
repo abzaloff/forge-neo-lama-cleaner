@@ -5,7 +5,13 @@ from modules.upscaler_utils import torch_bgr_to_pil_image, pil_image_to_torch_bg
 from .tools import WEIGHTS_PATH, ensureAllModelsDownloaded
 
 
-def processModel(model, image, mask):
+def run_inpaint_model(model, image, mask, mask_image=False):
+    if mask_image:
+        image = image * (1 - mask)
+    return model(image, mask).clamp_(0, 1)
+
+
+def processModel(model, image, mask, mask_image=False):
     param = torch_utils.get_param(model)
     model.to(param.device)
     with torch.no_grad():
@@ -16,9 +22,9 @@ def processModel(model, image, mask):
         tensor_mask = tensor_mask.to(device=param.device, dtype=param.dtype)
 
         with devices.without_autocast():
-            res = torch_bgr_to_pil_image(model(tensor_image, mask=tensor_mask))
+            res = torch_bgr_to_pil_image(run_inpaint_model(model, tensor_image, tensor_mask, mask_image))
 
-    if shared.cmd_opts.lowvram or shared.cmd_opts.medvram:
+    if getattr(shared.cmd_opts, "lowvram", False) or getattr(shared.cmd_opts, "medvram", False):
         model.cpu()
 
     return res
@@ -35,10 +41,9 @@ class LamaInpaint():
     ):
         if self.model is None:
             ensureAllModelsDownloaded()
-            self.model = modelloader.load_spandrel_model(os.path.join(WEIGHTS_PATH, 'big-lama.pt'),
-                                device=devices.device, expected_architecture="LaMa").model
+            self.model = torch.jit.load(os.path.join(WEIGHTS_PATH, 'big-lama.pt'), map_location=devices.device).eval()
 
-        return processModel(self.model, image, mask)
+        return processModel(self.model, image, mask, mask_image=True)
 
 
 class MATInpaint():
