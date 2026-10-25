@@ -4,6 +4,14 @@ This extenstion for [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AU
 
 This option means how to preprocess masked content before pass it into stable diffusion. It useful when you want to remove object in photo. Use inpainting model and denoising straight +-0.4
 
+## Batch img2img
+
+In **img2img → Batch → From directory**, set the input, output, and **Inpaint batch mask directory**, then enable **Use Lama Cleaner in Batch** below the mask directory. Forge pairs each image with a mask that has the same filename stem (for example, `photo.jpg` and `photo.png`) and runs Lama Cleaner on that image before img2img generation. Keep one matching mask for each image; Forge skips images without a matching mask when the mask directory contains multiple files. Forge's standard batch behavior reuses a single mask for every image if the mask directory contains only one file.
+
+For accurate alignment, make each mask the same pixel size as its image. When the sizes differ, this extension resizes the mask to the image size before both Lama Cleaner and Forge inpainting.
+
+The Batch switch is independent of the **Masked content** choice on the Inpaint tab. Leave the switch off to use Forge's usual Batch processing.
+
 It also supports my other extension: [sd-webui-replacer](https://github.com/light-and-ray/sd-webui-replacer)
 
 ![](images/gui.jpg)
